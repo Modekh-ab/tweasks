@@ -1,0 +1,7 @@
+name: tweasks
+version: '1.21.1-1.0'
+main: net.modekh.tweasks.Tweasks
+api-version: '1.21'
+commands:
+  tasks:
+    description: A general plugin command to launch in-game processes (start the game or set an item to guess).
