@@ -20,7 +20,7 @@ public class JoinListener implements Listener {
         Player player = event.getPlayer();
 
         if (!player.hasPlayedBefore()) {
-            main.getPlayersDatabase().addPlayer(player);
+            main.getDatabase().addPlayerData(player);
         }
     }
 }

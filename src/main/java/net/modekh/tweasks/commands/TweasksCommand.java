@@ -9,12 +9,14 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.scoreboard.*;
 
 import java.sql.SQLException;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 public class TweasksCommand implements CommandExecutor {
+    private static final Set<UUID> activePlayers = new HashSet<>();
     private final Tweasks main;
 
     public TweasksCommand(Tweasks main) {
@@ -70,8 +72,7 @@ public class TweasksCommand implements CommandExecutor {
 
         if (args[0].equalsIgnoreCase("start")) {
             try {
-                createScoreboard(player);
-
+                start();
                 return true;
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -82,7 +83,6 @@ public class TweasksCommand implements CommandExecutor {
         if (args[0].equalsIgnoreCase("reset")) {
             try {
                 reset(player);
-
                 return true;
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -93,49 +93,30 @@ public class TweasksCommand implements CommandExecutor {
         return false;
     }
 
-    private void createScoreboard(Player player) throws SQLException {
-        ScoreboardManager manager = Bukkit.getScoreboardManager();
+    private void start() throws SQLException {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            main.getDatabase().addPlayerData(player);
+            main.getScoreboard().addPlayerToScoreboard(player);
+            activePlayers.add(player.getUniqueId());
 
-        if (manager != null) {
-            Scoreboard board = manager.getNewScoreboard();
-            Objective objective = board.registerNewObjective("tasks", "dummy");
-
-            objective.setDisplayName(ChatUtils.formatMessage("&l&a", "Score"));
-            objective.setDisplaySlot(DisplaySlot.SIDEBAR);
-
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                Score score = objective.getScore(p.getName());
-                score.setScore(main.getPlayersDatabase().getPlayerScore(p));
-
-                p.setScoreboard(board);
-
-                ChatUtils.sendServerMessage(p, ChatUtils.formatMessage("&d", "Tasks game started!"));
-                p.playSound(p, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 1.0f);
-            }
+            ChatUtils.sendServerMessage(player, ChatUtils.formatMessage("&d", "Tasks game started!"));
+            player.playSound(player, Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 1.0f);
         }
     }
 
     private void reset(Player player) throws SQLException {
-        // scoreboard reset
-        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
-
-        for (Objective objective : board.getObjectives()) {
-            objective.unregister();
-        }
-
-        Set<String> entries = board.getEntries();
-
-        for (String entry : entries) {
-            board.resetScores(entry);
-        }
-
-        // db reset
         for (Player p : Bukkit.getOnlinePlayers()) {
-            main.getPlayersDatabase().resetPlayerTasks(p.getUniqueId().toString());
+            main.getDatabase().resetDatabase();
+            main.getScoreboard().resetScoreboard();
+            activePlayers.clear();
         }
 
         // players feedback
         player.getServer().broadcastMessage(
                 ChatUtils.serverMessage(ChatUtils.formatMessage("&d", "Tasks game reset.")));
+    }
+
+    public static Set<UUID> getActivePlayers() {
+        return activePlayers;
     }
 }

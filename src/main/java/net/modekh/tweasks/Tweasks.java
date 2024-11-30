@@ -2,9 +2,10 @@ package net.modekh.tweasks;
 
 import net.modekh.tweasks.commands.TweasksCommand;
 import net.modekh.tweasks.commands.TweasksCompleter;
-import net.modekh.tweasks.db.PlayersDatabase;
+import net.modekh.tweasks.handlers.TweasksDatabase;
 import net.modekh.tweasks.events.EventListener;
 import net.modekh.tweasks.events.JoinListener;
+import net.modekh.tweasks.handlers.TweasksScoreboard;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
@@ -14,7 +15,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.sql.SQLException;
 
 public final class Tweasks extends JavaPlugin {
-    private PlayersDatabase playersDatabase;
+    private TweasksDatabase playersDatabase;
+    private TweasksScoreboard playersScoreboard;
 
     @Override
     public void onEnable() {
@@ -23,11 +25,13 @@ public final class Tweasks extends JavaPlugin {
                 getDataFolder().mkdirs();
             }
 
-            playersDatabase = new PlayersDatabase(getDataFolder().getAbsolutePath() + "/tweasks.db");
+            playersDatabase = new TweasksDatabase(getDataFolder().getAbsolutePath() + "/tweasks.db");
         } catch (SQLException e) {
             e.printStackTrace();
             Bukkit.getPluginManager().disablePlugin(this);
         }
+
+        playersScoreboard = new TweasksScoreboard(this);
 
         getServer().getPluginCommand("tasks").setExecutor(new TweasksCommand(this));
         getCommand("tasks").setTabCompleter(new TweasksCompleter());
@@ -45,8 +49,12 @@ public final class Tweasks extends JavaPlugin {
         }
     }
 
-    public PlayersDatabase getPlayersDatabase() {
+    public TweasksDatabase getDatabase() {
         return playersDatabase;
+    }
+
+    public TweasksScoreboard getScoreboard() {
+        return playersScoreboard;
     }
 
     // chiseled bookshelf new recipe

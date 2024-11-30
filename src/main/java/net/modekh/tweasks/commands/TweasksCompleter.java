@@ -49,7 +49,7 @@ public class TweasksCompleter implements TabCompleter {
             StringUtil.copyPartialMatches(args[2], commands, completions);
         }
 
-        Collections.sort(completions);
+//        Collections.sort(completions);
         return completions;
     }
 }

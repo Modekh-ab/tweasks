@@ -1,6 +1,7 @@
 package net.modekh.tweasks.events;
 
 import net.modekh.tweasks.Tweasks;
+import net.modekh.tweasks.commands.TweasksCommand;
 import net.modekh.tweasks.utils.messages.ChatUtils;
 import net.modekh.tweasks.utils.Task;
 import net.modekh.tweasks.utils.messages.event.DeathMessage;
@@ -20,7 +21,6 @@ import org.bukkit.inventory.HorseInventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scoreboard.Objective;
 
-import java.sql.Array;
 import java.sql.SQLException;
 import java.util.*;
 
@@ -100,6 +100,10 @@ public class EventListener implements Listener {
     public void onPlayerToggleSneak(PlayerToggleSneakEvent event) throws SQLException {
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
+
+        if (raftSailData.isEmpty())
+            return;
+
         int sailStat = raftSailData.get(playerId);
 
         if (sailStat > 0) {
@@ -158,32 +162,33 @@ public class EventListener implements Listener {
     }
 
     private void addScore(Player player, Task task) throws SQLException {
+        if (!TweasksCommand.getActivePlayers().contains(player.getUniqueId()))
+            return;
+
         int reward = task.getReward();
         boolean positive = reward >= 0;
 
-        if (!main.getPlayersDatabase().getPlayerTasks(player).contains(task)) {
-            tasks.add(task);
-            main.getPlayersDatabase().savePlayerTasks(player.getUniqueId().toString(), tasks);
+        Objective objective = player.getScoreboard().getObjective("tasks");
 
-            Objective objective = player.getScoreboard().getObjective("tasks");
+        if (objective == null)
+            return;
 
-            if (objective != null) {
-                int currentScore = objective.getScore(player.getName()).getScore();
-                int newScore = currentScore + reward;
-                objective.getScore(player.getName()).setScore(newScore);
+        if (main.getDatabase().addCompletedTask(player, task)) {
+            // scoreboard
+            int currentScore = objective.getScore(player.getName()).getScore();
+            int newScore = currentScore + reward;
+            objective.getScore(player.getName()).setScore(newScore);
 
-                main.getPlayersDatabase().updatePlayerData(player, newScore, tasks);
+            // chat reward message
+            if (positive) {
+                message = RewardMessage.next((RewardMessage) message);
 
-                if (positive) {
-                    message = RewardMessage.next((RewardMessage) message);
+                if (message != null)
+                    ChatUtils.sendServerMessage(player, message.get());
 
-                    if (message != null)
-                        ChatUtils.sendServerMessage(player, message.get());
-
-                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0F);
-                }
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0F);
             }
-        } else {
+        } else { // chat death message
             if (!positive) {
                 message = DeathMessage.next((DeathMessage) message);
 
