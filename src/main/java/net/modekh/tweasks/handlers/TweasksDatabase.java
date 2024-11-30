@@ -17,7 +17,9 @@ public class TweasksDatabase {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS tweasks (" +
                     "uuid TEXT PRIMARY KEY, " +
                     "score INTEGER NOT NULL DEFAULT 2, " +
-                    "tasks TEXT, item TEXT, stats TEXT)");
+                    "tasks TEXT, item TEXT, " +
+                    "time_sailed INTEGER NOT NULL DEFAULT 0, " +
+                    "deaths INTEGER NOT NULL DEFAULT 0)");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -31,7 +33,8 @@ public class TweasksDatabase {
 
     public void addPlayerData(Player player) {
         try (PreparedStatement statement = connection.prepareStatement(
-                "INSERT INTO tweasks (uuid, score, tasks, item, stats) VALUES (?, 2, '', '', '')")) {
+                "INSERT INTO tweasks (uuid, score, tasks, item, time_sailed, deaths) " +
+                        "VALUES (?, 2, '', '', 0, 0)")) {
             statement.setString(1, player.getUniqueId().toString());
             statement.executeUpdate();
         } catch (SQLException e) {
@@ -130,7 +133,6 @@ public class TweasksDatabase {
             statement.setString(2, itemId);
 
             ResultSet resultSet = statement.executeQuery();
-
             return resultSet.next() && resultSet.getInt(1) > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -139,10 +141,10 @@ public class TweasksDatabase {
     }
 
     public String getPlayerItem(Player player) {
-        try (PreparedStatement preparedStatement = connection.prepareStatement(
+        try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT item FROM tweasks WHERE uuid = ?")) {
-            preparedStatement.setString(1, player.getUniqueId().toString());
-            ResultSet resultSet = preparedStatement.executeQuery();
+            statement.setString(1, player.getUniqueId().toString());
+            ResultSet resultSet = statement.executeQuery();
 
             if (resultSet.next()) {
                 return resultSet.getString("item");
@@ -152,6 +154,66 @@ public class TweasksDatabase {
         }
 
         return "";
+    }
+
+    public boolean setPlayerTimeSailed(Player player, int time) {
+        try (PreparedStatement statement = connection.prepareStatement("UPDATE tweasks " +
+                "SET time_sailed = ? WHERE uuid = ?")) {
+            statement.setInt(1, time);
+            statement.setString(2, player.getUniqueId().toString());
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        return true;
+    }
+
+    public int getPlayerTimeSailed(Player player) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(
+                "SELECT time_sailed FROM tweasks WHERE uuid = ?")) {
+            preparedStatement.setString(1, player.getUniqueId().toString());
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            if (resultSet.next()) {
+                return resultSet.getInt("time_sailed");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return 0;
+    }
+
+    public boolean addPlayerDeath(Player player) {
+        try (PreparedStatement statement = connection.prepareStatement("UPDATE tweasks " +
+                "SET deaths = ? WHERE uuid = ?")) {
+            statement.setInt(1, getPlayerDeaths(player) + 1);
+            statement.setString(2, player.getUniqueId().toString());
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        return getPlayerDeaths(player) > 4;
+    }
+
+    public int getPlayerDeaths(Player player) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(
+                "SELECT deaths FROM tweasks WHERE uuid = ?")) {
+            preparedStatement.setString(1, player.getUniqueId().toString());
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            if (resultSet.next()) {
+                return resultSet.getInt("deaths");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return 0;
     }
 
     public void resetDatabase() {

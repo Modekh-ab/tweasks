@@ -3,6 +3,8 @@ package net.modekh.tweasks.utils.messages.event;
 import net.modekh.tweasks.utils.messages.MessageUtils;
 import net.modekh.tweasks.utils.messages.event.base.EventMessage;
 
+import javax.annotation.Nullable;
+
 public enum RewardMessage implements EventMessage {
     MSG_0("Yeah, take your award!"),
     MSG_3("Wha, more points? Well, ok.."),
@@ -24,7 +26,7 @@ public enum RewardMessage implements EventMessage {
         return message;
     }
 
-    public static EventMessage next(RewardMessage rewardMessage) {
-        return MessageUtils.getRandom(values(), rewardMessage.ordinal());
+    public static EventMessage next(@Nullable RewardMessage rewardMessage) {
+        return MessageUtils.getRandom(values(), rewardMessage != null ? rewardMessage.ordinal() : 0);
     }
 }

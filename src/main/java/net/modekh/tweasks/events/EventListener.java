@@ -1,5 +1,7 @@
 package net.modekh.tweasks.events;
 
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.TextComponent;
 import net.modekh.tweasks.Tweasks;
 import net.modekh.tweasks.commands.TweasksCommand;
 import net.modekh.tweasks.utils.messages.ChatUtils;
@@ -7,9 +9,8 @@ import net.modekh.tweasks.utils.Task;
 import net.modekh.tweasks.utils.messages.event.DeathMessage;
 import net.modekh.tweasks.utils.messages.event.RewardMessage;
 import net.modekh.tweasks.utils.messages.event.base.EventMessage;
-import org.bukkit.Material;
-import org.bukkit.Sound;
-import org.bukkit.Statistic;
+import org.bukkit.*;
+import org.bukkit.advancement.Advancement;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -17,8 +18,10 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.CraftItemEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.*;
+import org.bukkit.event.vehicle.VehicleExitEvent;
 import org.bukkit.inventory.HorseInventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scoreboard.Objective;
 
 import java.sql.SQLException;
@@ -26,10 +29,8 @@ import java.util.*;
 
 public class EventListener implements Listener {
     // data
-
-    private static HashMap<UUID, Integer> raftSailData = new HashMap<>();
-    private static HashMap<UUID, Integer> deathData = new HashMap<>();
-    private static EventMessage message = RewardMessage.MSG_0;
+    private final Map<UUID, BukkitRunnable> activeTimers = new HashMap<>();
+    private static EventMessage message = null;
 
     // constructor
 
@@ -82,47 +83,79 @@ public class EventListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent event) {
-        if (event.getRightClicked() instanceof Boat boat) {
-            if (boat.getBoatType().equals(Boat.Type.BAMBOO)) {
-                Player player = event.getPlayer();
+    public void onPlayerEnterBoat(PlayerInteractEntityEvent event) throws SQLException {
+        if (!(event.getRightClicked() instanceof Boat boat
+                && boat.getBoatType().equals(Boat.Type.BAMBOO) && containsMobPassenger(boat)))
+            return;
 
-                if (containsMobPassenger(boat)) {
-                    raftSailData.put(player.getUniqueId(), player.getStatistic(Statistic.BOAT_ONE_CM));
-                }
-            }
-        }
-    }
-
-    @EventHandler
-    public void onPlayerToggleSneak(PlayerToggleSneakEvent event) throws SQLException {
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
 
-        if (raftSailData.isEmpty())
+        if (main.getDatabase().getPlayerTimeSailed(player) > 50) {
+            addScore(player, Task.BAMBOO_RAFT_WITH_MOBS);
+            return;
+        }
+
+        if (activeTimers.containsKey(playerId)) {
+            return;
+        }
+
+        BukkitRunnable timer = new BukkitRunnable() {
+            private int time = 0;
+
+            @Override
+            public void run() {
+                if (!player.isInsideVehicle() || !(player.getVehicle() instanceof Boat)) {
+                    cancel();
+                    activeTimers.remove(playerId);
+                    return;
+                }
+
+                time++;
+                main.getDatabase().setPlayerTimeSailed(player, time);
+                player.spigot().sendMessage(ChatMessageType.ACTION_BAR, playerId, new TextComponent("Time on the boat: "
+                        + ChatUtils.aquaMessage(String.valueOf(time))));
+            }
+        };
+
+        timer.runTaskTimer(main, 0, 20);
+        activeTimers.put(playerId, timer);
+    }
+
+    @EventHandler
+    public void onPlayerExitBoat(VehicleExitEvent event) throws SQLException {
+        if (!(event.getVehicle() instanceof Boat) || !(event.getExited() instanceof Player player))
             return;
 
-        int sailStat = raftSailData.get(playerId);
-
-        if (sailStat > 0) {
-            int currentSailStat = player.getStatistic(Statistic.BOAT_ONE_CM) - sailStat;
-
-            if (currentSailStat > 10) {
-                addScore(player, Task.BAMBOO_RAFT_WITH_MOBS);
-            }
+        if (main.getDatabase().getPlayerTimeSailed(player) > 50) {
+            addScore(player, Task.BAMBOO_RAFT_WITH_MOBS);
+            return;
         }
+
+        UUID playerId = player.getUniqueId();
+
+        if (activeTimers.containsKey(playerId)) {
+            activeTimers.get(playerId).cancel();
+            activeTimers.remove(playerId);
+        }
+
+        main.getDatabase().setPlayerTimeSailed(player, 0);
     }
 
     @EventHandler
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) throws SQLException {
         if (event.getRightClicked() instanceof Cat cat) {
             Player player = event.getPlayer();
+            Player owner = (Player) cat.getOwner();
 
-            if (cat.getOwner().getUniqueId().equals(player.getUniqueId())) {
-                ItemStack nameTagItem = new ItemStack(Material.NAME_TAG);
-                player.sendMessage("doing greattttt");
+            if (owner == null)
+                return;
 
-                if (Objects.equals(player.getItemInUse(), nameTagItem)) {
+            String ownerId = owner.getUniqueId().toString();
+            String playerId = player.getUniqueId().toString();
+
+            if (ownerId.equals(playerId)) {
+                if (player.getItemInHand().getType().equals(Material.NAME_TAG)) {
                     addScore(player, Task.CAT_TAME_NAME);
                 }
             }
@@ -130,20 +163,24 @@ public class EventListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerDeath(PlayerDeathEvent event) {
+    public void onPlayerDeath(PlayerDeathEvent event) throws SQLException {
         Player player = event.getEntity();
-        UUID playerId = player.getUniqueId();
-        int currentDeaths = deathData.getOrDefault(playerId, 0);
 
-        deathData.put(playerId, currentDeaths + 1);
+        if (main.getDatabase().addPlayerDeath(player)) {
+            addScore(player, Task.DEATHS_LIMIT, false);
+        }
     }
 
     @EventHandler
-    public void onPlayerRespawn(PlayerRespawnEvent event) throws SQLException {
+    public void onChangeDimension(PlayerAdvancementDoneEvent event) throws SQLException {
         Player player = event.getPlayer();
+        Advancement theEnd = Bukkit.getAdvancement(NamespacedKey.minecraft("end/root"));
 
-        if (deathData.get(player.getUniqueId()) > 4) {
-            addScore(player, Task.DEATHS_LIMIT);
+        if (theEnd == null)
+            return;
+
+        if (player.getAdvancementProgress(theEnd).isDone()) {
+            addScore(player, Task.END);
         }
     }
 
@@ -159,7 +196,7 @@ public class EventListener implements Listener {
         return false;
     }
 
-    private void addScore(Player player, Task task) throws SQLException {
+    private void addScore(Player player, Task task, boolean feedback) throws SQLException {
         if (!TweasksCommand.getActivePlayers().contains(player.getUniqueId()))
             return;
 
@@ -174,10 +211,15 @@ public class EventListener implements Listener {
             int currentScore = objective.getScore(player.getName()).getScore();
             int newScore = currentScore + reward;
 
-            objective.getScore(player.getName()).setScore(newScore);
+            objective.getScore(player.getDisplayName()).setScore(newScore);
 
-            sendTaskFeedback(player, task);
+            if (feedback)
+                sendTaskFeedback(player, task);
         }
+    }
+
+    private void addScore(Player player, Task task) throws SQLException {
+        addScore(player, task, true);
     }
 
     public static void sendTaskFeedback(Player player, Task task) {
@@ -192,14 +234,12 @@ public class EventListener implements Listener {
                 ChatUtils.sendServerMessage(player, message.get());
 
             player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0F);
+        } else {
+            message = DeathMessage.next((DeathMessage) message);
 
-            return;
+            if (message != null)
+                ChatUtils.sendServerMessage(player, message.get());
         }
-
-        message = DeathMessage.next((DeathMessage) message);
-
-        if (message != null)
-            ChatUtils.sendServerMessage(player, message.get());
 
         player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_BREAK, 1.0f, 1.0F);
     }

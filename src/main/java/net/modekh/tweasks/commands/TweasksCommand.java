@@ -127,7 +127,7 @@ public class TweasksCommand implements CommandExecutor {
 
         if (args[0].equalsIgnoreCase("reset")) {
             try {
-                reset(player);
+                reset();
                 return true;
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -149,19 +149,19 @@ public class TweasksCommand implements CommandExecutor {
         }
     }
 
-    private void reset(Player player) throws SQLException {
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            main.getDatabase().resetDatabase();
-            main.getScoreboard().resetScoreboard();
+    private void reset() throws SQLException {
+        main.getDatabase().resetDatabase();
+        main.getScoreboard().resetScoreboard();
 
-            activePlayers.clear();
-            unsolvedPlayers.clear();
+        activePlayers.clear();
+        unsolvedPlayers.clear();
+
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            // players feedback
+            player.playSound(player, Sound.ENCHANT_THORNS_HIT, 1.0f, 1.0f);
+            player.getServer().broadcastMessage(
+                    ChatUtils.serverMessage(ChatUtils.formatMessage("&d", "Tasks game reset.")));
         }
-
-        // players feedback
-        player.playSound(player, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 1.0f, 1.0f);
-        player.getServer().broadcastMessage(
-                ChatUtils.serverMessage(ChatUtils.formatMessage("&d", "Tasks game reset.")));
     }
 
     private void addScore(Player player) {
