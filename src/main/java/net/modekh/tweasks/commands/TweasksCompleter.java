@@ -22,13 +22,21 @@ public class TweasksCompleter implements TabCompleter {
 
         if (args.length == 1) {
             commands.add("start");
+            commands.add("reset");
             commands.add("item");
+            commands.add("guess");
 
             StringUtil.copyPartialMatches(args[0], commands, completions);
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("item")) {
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     commands.add(player.getName());
+                }
+            }
+
+            if (args[0].equalsIgnoreCase("guess")) {
+                for (Material item : Material.values()) {
+                    commands.add(item.name().toLowerCase());
                 }
             }
 
