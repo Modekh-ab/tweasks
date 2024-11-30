@@ -29,14 +29,14 @@ public class TweasksCompleter implements TabCompleter {
             StringUtil.copyPartialMatches(args[0], commands, completions);
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("item")) {
-                for (Player player : Bukkit.getOnlinePlayers()) {
-                    commands.add(player.getName());
+                for (Material item : Material.values()) {
+                    commands.add(item.name().toLowerCase());
                 }
             }
 
             if (args[0].equalsIgnoreCase("guess")) {
-                for (Material item : Material.values()) {
-                    commands.add(item.name().toLowerCase());
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    commands.add(player.getName());
                 }
             }
 

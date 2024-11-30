@@ -1,6 +1,7 @@
 package net.modekh.tweasks.handlers;
 
 import net.modekh.tweasks.utils.Task;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 
 import java.sql.*;
@@ -16,7 +17,7 @@ public class TweasksDatabase {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS tweasks (" +
                     "uuid TEXT PRIMARY KEY, " +
                     "score INTEGER NOT NULL DEFAULT 2, " +
-                    "tasks TEXT)");
+                    "tasks TEXT, item TEXT, stats TEXT)");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -30,7 +31,7 @@ public class TweasksDatabase {
 
     public void addPlayerData(Player player) {
         try (PreparedStatement statement = connection.prepareStatement(
-                "INSERT INTO tweasks (uuid, score, tasks) VALUES (?, 2, '')")) {
+                "INSERT INTO tweasks (uuid, score, tasks, item, stats) VALUES (?, 2, '', '', '')")) {
             statement.setString(1, player.getUniqueId().toString());
             statement.executeUpdate();
         } catch (SQLException e) {
@@ -57,8 +58,6 @@ public class TweasksDatabase {
     public boolean addCompletedTask(Player player, Task task) throws SQLException {
         Set<Integer> completedTasks = getCompletedTasks(player);
 
-        System.out.println("TASKS: " + completedTasks);
-
         if (!completedTasks.add(task.ordinal()))
             return false;
 
@@ -73,6 +72,7 @@ public class TweasksDatabase {
             statement.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
+            return false;
         }
 
         return true;
@@ -101,11 +101,69 @@ public class TweasksDatabase {
         return completedTasks;
     }
 
+    public boolean addItemToGuess(Player player, String itemId) {
+        if (getMaterial(itemId) == null)
+            return false;
+
+        try (PreparedStatement statement = connection.prepareStatement("UPDATE tweasks " +
+                "SET item = ? WHERE uuid = ?")) {
+            statement.setString(1, itemId);
+            statement.setString(2, player.getUniqueId().toString());
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+
+        return true;
+    }
+
+    public boolean guessItem(Player opponent, String itemId) {
+        String opponentItemId = getPlayerItem(opponent);
+
+        if (getMaterial(itemId) == null || opponentItemId == null || opponentItemId.isEmpty())
+            return false;
+
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT COUNT(*) FROM tweasks WHERE uuid = ? AND item = ?")) {
+            statement.setString(1, opponent.getUniqueId().toString());
+            statement.setString(2, itemId);
+
+            ResultSet resultSet = statement.executeQuery();
+
+            return resultSet.next() && resultSet.getInt(1) > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public String getPlayerItem(Player player) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(
+                "SELECT item FROM tweasks WHERE uuid = ?")) {
+            preparedStatement.setString(1, player.getUniqueId().toString());
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            if (resultSet.next()) {
+                return resultSet.getString("item");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return "";
+    }
+
     public void resetDatabase() {
         try (Statement stmt = connection.createStatement()) {
             stmt.executeUpdate("DELETE FROM tweasks");
         } catch (SQLException e) {
             e.printStackTrace();
         }
+    }
+
+    private static Material getMaterial(String itemId) {
+        itemId = "minecraft:" + itemId;
+        return Material.matchMaterial(itemId);
     }
 }

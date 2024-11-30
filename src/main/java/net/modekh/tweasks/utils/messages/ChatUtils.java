@@ -16,11 +16,18 @@ public class ChatUtils {
         return ChatColor.RESET + message;
     }
 
-    public static void sendInvalidMessage(Player player) {
+    public static void sendInvalidMessageItem(Player player) {
         ChatUtils.sendServerMessage(player, ChatColor.GOLD + "Invalid command!");
-        ChatUtils.sendServerMessage(player, "Command template is: "
-                + ChatUtils.formatMessage("&3", "\"/tasks item ")
-                + ChatUtils.aquaMessage("<player who guesses your item> <item ID>")
+        ChatUtils.sendServerMessage(player, "Usage: "
+                + ChatUtils.formatMessage("&3", "\"/tasks item ") + ChatUtils.aquaMessage("<item_id>")
+                + ChatUtils.formatMessage("&3", "\""));
+    }
+
+    public static void sendInvalidMessageGuess(Player player) {
+        ChatUtils.sendServerMessage(player, ChatColor.GOLD + "Invalid command!");
+        ChatUtils.sendServerMessage(player, "Usage: "
+                + ChatUtils.formatMessage("&3", "\"/tasks guess ")
+                + ChatUtils.aquaMessage("<opponent_username> <item_id>")
                 + ChatUtils.formatMessage("&3", "\""));
     }
 

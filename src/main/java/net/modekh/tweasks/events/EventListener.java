@@ -27,8 +27,6 @@ import java.util.*;
 public class EventListener implements Listener {
     // data
 
-    private static List<Task> tasks = new ArrayList<>();
-
     private static HashMap<UUID, Integer> raftSailData = new HashMap<>();
     private static HashMap<UUID, Integer> deathData = new HashMap<>();
     private static EventMessage message = RewardMessage.MSG_0;
@@ -166,37 +164,43 @@ public class EventListener implements Listener {
             return;
 
         int reward = task.getReward();
-        boolean positive = reward >= 0;
-
         Objective objective = player.getScoreboard().getObjective("tasks");
 
         if (objective == null)
             return;
 
-        if (main.getDatabase().addCompletedTask(player, task)) {
+        if (this.main.getDatabase().addCompletedTask(player, task)) {
             // scoreboard
             int currentScore = objective.getScore(player.getName()).getScore();
             int newScore = currentScore + reward;
+
             objective.getScore(player.getName()).setScore(newScore);
 
-            // chat reward message
-            if (positive) {
-                message = RewardMessage.next((RewardMessage) message);
-
-                if (message != null)
-                    ChatUtils.sendServerMessage(player, message.get());
-
-                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0F);
-            }
-        } else { // chat death message
-            if (!positive) {
-                message = DeathMessage.next((DeathMessage) message);
-
-                if (message != null)
-                    ChatUtils.sendServerMessage(player, message.get());
-
-                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_BREAK, 1.0f, 1.0F);
-            }
+            sendTaskFeedback(player, task);
         }
+    }
+
+    public static void sendTaskFeedback(Player player, Task task) {
+        int reward = task.getReward();
+        boolean positive = reward >= 0;
+
+        // chat reward message
+        if (positive) {
+            message = RewardMessage.next((RewardMessage) message);
+
+            if (message != null)
+                ChatUtils.sendServerMessage(player, message.get());
+
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0F);
+
+            return;
+        }
+
+        message = DeathMessage.next((DeathMessage) message);
+
+        if (message != null)
+            ChatUtils.sendServerMessage(player, message.get());
+
+        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_BREAK, 1.0f, 1.0F);
     }
 }

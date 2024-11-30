@@ -1,6 +1,8 @@
 package net.modekh.tweasks.commands;
 
 import net.modekh.tweasks.Tweasks;
+import net.modekh.tweasks.events.EventListener;
+import net.modekh.tweasks.utils.Task;
 import net.modekh.tweasks.utils.messages.ChatUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -9,6 +11,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.scoreboard.Objective;
 
 import java.sql.SQLException;
 import java.util.HashSet;
@@ -17,6 +20,7 @@ import java.util.UUID;
 
 public class TweasksCommand implements CommandExecutor {
     private static final Set<UUID> activePlayers = new HashSet<>();
+    private static final Set<UUID> unsolvedPlayers = new HashSet<>();
     private final Tweasks main;
 
     public TweasksCommand(Tweasks main) {
@@ -33,11 +37,39 @@ public class TweasksCommand implements CommandExecutor {
             return false;
         }
 
-        // commands w/o op requirement
+        // commands without op requirement
 
         if (args[0].equalsIgnoreCase("item")) {
+            if (args.length != 2) {
+                ChatUtils.sendInvalidMessageItem(player);
+                return false;
+            }
+
+            try {
+                String itemId = args[1];
+
+                if (main.getDatabase().addItemToGuess(player, itemId)) {
+                    unsolvedPlayers.add(player.getUniqueId());
+                    ChatUtils.sendServerMessage(player, "Your item now is "
+                            + ChatUtils.aquaMessage(itemId) + ChatUtils.reset("."));
+                    player.getServer().broadcastMessage(
+                            ChatUtils.serverMessage(getAquaName(player) + " had just chosen an item to guess!"));
+
+                    return true;
+                }
+
+                ChatUtils.sendServerMessage(player, ChatUtils.formatMessage("&6", "Invalid item!"));
+
+                return false;
+            } catch (Exception e) {
+                ChatUtils.sendInvalidMessageItem(player);
+                return false;
+            }
+        }
+
+        if (args[0].equalsIgnoreCase("guess")) {
             if (args.length != 3) {
-                ChatUtils.sendInvalidMessage(player);
+                ChatUtils.sendInvalidMessageGuess(player);
                 return false;
             }
 
@@ -45,20 +77,33 @@ public class TweasksCommand implements CommandExecutor {
                 Player opponent = Bukkit.getPlayer(args[1]);
                 String itemId = args[2];
 
-                ChatUtils.sendServerMessage(player, "Your item for "
-                        + ChatUtils.aquaMessage(opponent.getName()) + ChatUtils.reset(" is ")
-                        + ChatUtils.aquaMessage(itemId) + ChatUtils.reset("."));
+                if (opponent == null || opponent.equals(player))
+                    return false;
 
-                return true;
-            } catch (Exception e) {
-                ChatUtils.sendInvalidMessage(player);
+                if (main.getDatabase().guessItem(opponent, itemId)) {
+                    boolean guessed = main.getDatabase().addCompletedTask(player, Task.ITEM_GUESS);
+
+                    if (!guessed) {
+                        ChatUtils.sendServerMessage(player, "You already guessed " + getAquaName(opponent) + "'s item.");
+                        return false;
+                    }
+
+                    addScore(player);
+
+                    unsolvedPlayers.remove(player.getUniqueId());
+                    ChatUtils.sendServerMessage(player, "You guessed "
+                            + ChatUtils.aquaMessage(itemId) + ChatUtils.reset("!"));
+                    ChatUtils.sendServerMessage(opponent, ChatUtils.formatMessage("&6",
+                            "Yo, " + getAquaName(player) + " just guessed your item... But shh!"));
+
+                    return true;
+                }
+
+                ChatUtils.sendServerMessage(player,ChatUtils.formatMessage("&6", "Nope!"));
+
                 return false;
-            }
-        }
-
-        if (args[0].equalsIgnoreCase("guess")) {
-            if (args.length != 2) {
-                ChatUtils.sendInvalidMessage(player);
+            } catch (Exception e) {
+                ChatUtils.sendInvalidMessageGuess(player);
                 return false;
             }
         }
@@ -108,15 +153,41 @@ public class TweasksCommand implements CommandExecutor {
         for (Player p : Bukkit.getOnlinePlayers()) {
             main.getDatabase().resetDatabase();
             main.getScoreboard().resetScoreboard();
+
             activePlayers.clear();
+            unsolvedPlayers.clear();
         }
 
         // players feedback
+        player.playSound(player, Sound.ENTITY_FIREWORK_ROCKET_LAUNCH, 1.0f, 1.0f);
         player.getServer().broadcastMessage(
                 ChatUtils.serverMessage(ChatUtils.formatMessage("&d", "Tasks game reset.")));
     }
 
+    private void addScore(Player player) {
+        if (!TweasksCommand.getActivePlayers().contains(player.getUniqueId()))
+            return;
+
+        int reward = Task.ITEM_GUESS.getReward(); // function only for one task
+        Objective objective = player.getScoreboard().getObjective("tasks");
+
+        if (objective == null)
+            return;
+
+        // scoreboard
+        int currentScore = objective.getScore(player.getName()).getScore();
+        int newScore = currentScore + reward;
+
+        objective.getScore(player.getName()).setScore(newScore);
+
+        EventListener.sendTaskFeedback(player, Task.ITEM_GUESS);
+    }
+
     public static Set<UUID> getActivePlayers() {
         return activePlayers;
+    }
+
+    private static String getAquaName(Player player) {
+        return ChatUtils.aquaMessage(player.getDisplayName()) + ChatColor.RESET;
     }
 }
