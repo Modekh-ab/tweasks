@@ -2,12 +2,13 @@ package net.modekh.tweasks;
 
 import net.modekh.tweasks.commands.TweasksCommand;
 import net.modekh.tweasks.commands.TweasksCompleter;
+import net.modekh.tweasks.events.*;
+import net.modekh.tweasks.events.base.EventListener;
 import net.modekh.tweasks.handlers.TweasksDatabase;
-import net.modekh.tweasks.events.EventListener;
-import net.modekh.tweasks.events.JoinListener;
 import net.modekh.tweasks.handlers.TweasksScoreboard;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -20,6 +21,7 @@ public final class Tweasks extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        // main classes init
         try {
             if (!getDataFolder().exists()) {
                 getDataFolder().mkdirs();
@@ -32,12 +34,23 @@ public final class Tweasks extends JavaPlugin {
         }
 
         playersScoreboard = new TweasksScoreboard(this);
+        EventListener eventListener = new EventListener(this);
 
+        // commands init
         getServer().getPluginCommand("tasks").setExecutor(new TweasksCommand(this));
         getCommand("tasks").setTabCompleter(new TweasksCompleter());
 
+        // base listener
+        getServer().getPluginManager().registerEvents(eventListener, this);
+        // tasks listeners
         getServer().getPluginManager().registerEvents(new JoinListener(this), this);
-        getServer().getPluginManager().registerEvents(new EventListener(this), this);
+        getServer().getPluginManager().registerEvents(new CraftListener(eventListener), this);
+        getServer().getPluginManager().registerEvents(new PickupListener(eventListener), this);
+        getServer().getPluginManager().registerEvents(new HorseEquipListener(eventListener), this);
+        getServer().getPluginManager().registerEvents(new CatInteractListener(eventListener), this);
+        getServer().getPluginManager().registerEvents(new ChangeDimensionListener(eventListener), this);
+        getServer().getPluginManager().registerEvents(new OnBoatListener(this, eventListener), this);
+        getServer().getPluginManager().registerEvents(new DeathListener(this, eventListener), this);
     }
 
     @Override
@@ -70,5 +83,6 @@ public final class Tweasks extends JavaPlugin {
         recipe.setIngredient('T', Material.OAK_TRAPDOOR);
 
         Bukkit.addRecipe(recipe);
+        Bukkit.removeRecipe(NamespacedKey.minecraft("chiseled_bookshelf"));
     }
 }

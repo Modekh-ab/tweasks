@@ -1,9 +1,7 @@
 package net.modekh.tweasks.utils.messages;
 
-import net.modekh.tweasks.utils.messages.event.base.EventMessage;
-
 public class MessageUtils {
-    public static EventMessage getRandom(EventMessage[] values, int messageOrd) {
+    public static RewardMessage getRandom(RewardMessage[] values, int messageOrd) {
         int nextOrd;
 
         do {

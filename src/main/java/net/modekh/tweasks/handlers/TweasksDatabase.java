@@ -156,7 +156,7 @@ public class TweasksDatabase {
         return "";
     }
 
-    public boolean setPlayerTimeSailed(Player player, int time) {
+    public void setPlayerTimeSailed(Player player, int time) {
         try (PreparedStatement statement = connection.prepareStatement("UPDATE tweasks " +
                 "SET time_sailed = ? WHERE uuid = ?")) {
             statement.setInt(1, time);
@@ -164,10 +164,7 @@ public class TweasksDatabase {
             statement.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
-            return false;
         }
-
-        return true;
     }
 
     public int getPlayerTimeSailed(Player player) {

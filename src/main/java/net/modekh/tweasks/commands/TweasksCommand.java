@@ -1,7 +1,7 @@
 package net.modekh.tweasks.commands;
 
 import net.modekh.tweasks.Tweasks;
-import net.modekh.tweasks.events.EventListener;
+import net.modekh.tweasks.events.base.EventListener;
 import net.modekh.tweasks.utils.Task;
 import net.modekh.tweasks.utils.messages.ChatUtils;
 import org.bukkit.Bukkit;
